@@ -19,16 +19,10 @@ const CACHEDIR = nipCacheDir;
 
 const nipNodeDir = process.cwd() + "/node_modules";
 
-if (!fs.existsSync(nipCacheDir + '/installed')) {
-    fs.createFile(nipCacheDir + "/installed");
-}
-
 const NODEDIR = nipNodeDir;
-const PACKAGEFILE = nipCacheDir + "/installed";
 
 module.exports = {
     MAINDIR: MAINDIR,
     CACHEDIR: CACHEDIR,
-    NODEDIR: NODEDIR,
-    PACKAGEFILE: PACKAGEFILE
+    NODEDIR: NODEDIR
 }

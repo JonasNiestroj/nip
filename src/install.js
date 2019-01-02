@@ -3,7 +3,7 @@ const { exec } = require('child_process');
 const semver = require('semver');
 const path = require('path');
 const axios = require('axios');
-const { MAINDIR, CACHEDIR, NODEDIR, PACKAGEFILE } = require('./paths.js');
+const { MAINDIR, CACHEDIR, NODEDIR } = require('./paths.js');
 
 const { getVersionData, compareVersion, findBestVersion } = require('./version.js');
 const { getPackageFile } = require('./package.js');
@@ -120,9 +120,16 @@ const install = (cwd, environment) => {
                     let version = fullDeps[dependencyKeys[i]];
                     promises.push(installModule(dependencyKeys[i], version));
                 }
-                Promise.all(promises).then(() => {
+                Promise.all(promises).then(response => {
                     if (top) {
                         console.log(tab + "Installation of " + name + " complete");
+                    }
+                    if (fs.existsSync(CACHEDIR + "/" + name + "/" + parentVersion)) {
+                        fs.mkdirSync(CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules");
+                        response.forEach(element => {
+                            const command = "mklink /d /j \"" + CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules/" + element[1] + "\" \"" + element[0] + "\"";
+                            exec(command);
+                        })
                     }
                     resolve();
                     return;
@@ -179,7 +186,7 @@ const startInstall = (cwd, environment) => {
         })
     })
 
-}
+};
 
 const getModuleFromNpm = (key, version) => {
     return Promise.resolve().then(() => {
