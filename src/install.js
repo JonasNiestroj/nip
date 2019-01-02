@@ -15,20 +15,8 @@ const handleTarArchiveDownload = (response, key, resolve, reject) => {
     response.data.pipe(file);
     file.on('finish', () => {
         const cacheDir = CACHEDIR + "/" + key;
-        if (!fs.existsSync(cacheDir)) {
-            fs.mkdirSync(cacheDir);
-        }
-
-        // cleanup
-        try {
-            fs.removeSync(MAINDIR + "/" + key + "/*");
-            fs.removeSync(MAINDIR + "/" + key);
-        }
-        catch (err) {
-            console.log("error", err);
-            throw err;
-        }
-        fs.mkdirSync(MAINDIR + "/" + key);
+        fs.ensureDirSync(cacheDir);
+        fs.emptyDirSync(MAINDIR + "/" + key);
         const command = "tar -xvzf " + MAINDIR + "/" + key + ".tgz -C " + MAINDIR + "/" + key;
         exec(command, (err, stdout, stderr) => {
             const extractedFolder = fs.readdirSync(MAINDIR + "/" + key)[0];
@@ -124,12 +112,13 @@ const install = (cwd, environment) => {
                         if (top) {
                             console.log(tab + "Installation of package " + name + " completed");
                         }
-                        if (fs.existsSync(CACHEDIR + "/" + name + "/" + parentVersion) && !fs.existsSync(CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules")) {
-                            fs.mkdirSync(CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules");
-                            response.forEach(element => {
-                                const command = "mklink /d /j \"" + CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules/" + element[1] + "\" \"" + element[0] + "\"";
-                                exec(command);
-                            })
+                        if (fs.existsSync(CACHEDIR + "/" + name + "/" + parentVersion)) {
+                            fs.ensureDir(CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules", () => {
+                                response.forEach(element => {
+                                    const command = "mklink /d /j \"" + CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules/" + element[1] + "\" \"" + element[0] + "\"";
+                                    exec(command);
+                                });
+                            });
                         }
                         resolve();
                         return;
@@ -170,9 +159,7 @@ const install = (cwd, environment) => {
                 highest = version2;
             }
         }
-        if (fs.existsSync(NODEDIR + "/" + name)) {
-            fs.removeSync(NODEDIR + "/" + name);
-        }
+        fs.removeSync(NODEDIR + "/" + name);
         const command = "mklink /d /j \"" + NODEDIR + "/" + name + "\" \"" + parentDir + "/" + highest + "\"";
         exec(command);
     }).then(() => {
@@ -183,14 +170,10 @@ const install = (cwd, environment) => {
 const startInstall = (cwd, environment) => {
     return new Promise((resolve, reject) => {
         const nodeDir = cwd + "/node_modules";
-        exec("rm -rf " + nodeDir, () => {
-            if (!fs.existsSync(nodeDir)) {
-                fs.mkdirSync(nodeDir);
-            }
+        fs.emptyDir(nodeDir, () => {
             install(cwd, environment).then(() => resolve());
-        })
-    })
-
+        });
+    });
 };
 
 const getModuleFromNpm = (key, version) => {
@@ -245,7 +228,6 @@ const installModule = (key, version) => {
             reject(err);
             throw err;
         }
-        const realVersion = versionData.useVersion;
         const packageCacheDir = CACHEDIR + "/" + key;
 
         const handleExistingInstallation = cwd => {

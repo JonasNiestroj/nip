@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "run": "node src/main.js install"
+    "run": "node src/main.js install",
+    "createExe": "pkg ./src/main.js --output nip.exe"
   },
   "author": "Jonas Niestroj",
   "license": "BSD 2-Clause",
