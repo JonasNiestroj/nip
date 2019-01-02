@@ -1,6 +1,5 @@
 const fs = require('fs-extra');
 const { exec } = require('child_process');
-const semver = require('semver');
 const path = require('path');
 const axios = require('axios');
 const { MAINDIR, CACHEDIR, NODEDIR } = require('./paths.js');
@@ -96,7 +95,7 @@ const install = (cwd, environment) => {
             const top = chain.length <= 2;
 
             if (top) {
-                console.log(tab + "Installing module", name, parentVersion);
+                console.log(tab + "Installing package", name, parentVersion);
             }
 
             let fullDeps = {
@@ -110,34 +109,40 @@ const install = (cwd, environment) => {
             }
 
             const dependencyKeys = Object.keys(fullDeps);
-            console.log("Dependencies of " + key + " are " + dependencyKeys);
-            const installDependency = () => {
-                if (top) {
-                    console.log(tab2 + name + " dependencies left: " + dependencyKeys.length);
-                }
-                let promises = [];
-                for (let i = 0; i < dependencyKeys.length; i++) {
-                    let version = fullDeps[dependencyKeys[i]];
-                    promises.push(installModule(dependencyKeys[i], version));
-                }
-                Promise.all(promises).then(response => {
+            if (dependencyKeys.length > 0) {
+                console.log(key + " has " + dependencyKeys.length + " dependencies: " + dependencyKeys);
+                const installDependency = () => {
                     if (top) {
-                        console.log(tab + "Installation of " + name + " complete");
+                        console.log(tab2 + name + " dependencies left: " + dependencyKeys.length);
                     }
-                    if (fs.existsSync(CACHEDIR + "/" + name + "/" + parentVersion) && !fs.existsSync(CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules")) {
-                        fs.mkdirSync(CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules");
-                        response.forEach(element => {
-                            const command = "mklink /d /j \"" + CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules/" + element[1] + "\" \"" + element[0] + "\"";
-                            exec(command);
-                        })
+                    let promises = [];
+                    for (let i = 0; i < dependencyKeys.length; i++) {
+                        let version = fullDeps[dependencyKeys[i]];
+                        promises.push(installModule(dependencyKeys[i], version));
                     }
-                    resolve();
-                    return;
-                }).catch(err => {
-                    reject('Unable to install dependency: ' + err.message);
-                });
+                    Promise.all(promises).then(response => {
+                        if (top) {
+                            console.log(tab + "Installation of package " + name + " completed");
+                        }
+                        if (fs.existsSync(CACHEDIR + "/" + name + "/" + parentVersion) && !fs.existsSync(CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules")) {
+                            fs.mkdirSync(CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules");
+                            response.forEach(element => {
+                                const command = "mklink /d /j \"" + CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules/" + element[1] + "\" \"" + element[0] + "\"";
+                                exec(command);
+                            })
+                        }
+                        resolve();
+                        return;
+                    }).catch(err => {
+                        reject('Unable to install package: ' + err.message);
+                    });
+                }
+                installDependency();
             }
-            installDependency();
+            else {
+                console.log(tab + "Installation of package " + name + " completed");
+                resolve();
+            }
         });
     }).then(() => {
         if (cwd.indexOf(MAINDIR) !== 0) {
@@ -205,7 +210,6 @@ const getModuleFromNpm = (key, version) => {
                     if (versionData.dist) {
                         const archive = versionData.dist.tarball;
                         getTarArchive(archive, key).then(actualVersion => {
-                            console.log("Version: ", actualVersion);
                             resolve(actualVersion);
                         }).catch(reject);
                     }
@@ -237,7 +241,7 @@ const installModule = (key, version) => {
             versionData = result.versionData;
         }
         catch (err) {
-            console.log(key + " Unable to install module:", err);
+            console.log(key + " Unable to install package:", err);
             reject(err);
             throw err;
         }
@@ -260,7 +264,7 @@ const installModule = (key, version) => {
                     versionCacheDir = packageCacheDir + "/" + actualVersion;
                     resolve([versionCacheDir, key]);
                 }).catch(e => {
-                    console.log(key + " Unable to install module:", e);
+                    console.log(key + " Unable to install package:", e);
                     throw e;
                 });
             }
