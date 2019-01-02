@@ -124,7 +124,7 @@ const install = (cwd, environment) => {
                     if (top) {
                         console.log(tab + "Installation of " + name + " complete");
                     }
-                    if (fs.existsSync(CACHEDIR + "/" + name + "/" + parentVersion)) {
+                    if (fs.existsSync(CACHEDIR + "/" + name + "/" + parentVersion) && !fs.existsSync(CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules")) {
                         fs.mkdirSync(CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules");
                         response.forEach(element => {
                             const command = "mklink /d /j \"" + CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules/" + element[1] + "\" \"" + element[0] + "\"";
