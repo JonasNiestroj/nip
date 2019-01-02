@@ -5,7 +5,7 @@ const axios = require('axios');
 const { MAINDIR, CACHEDIR, NODEDIR } = require('./paths.js');
 
 const { getVersionData, compareVersion, findBestVersion } = require('./version.js');
-const { getPackageFile } = require('./package.js');
+const { getPackageFile, setPackageFile } = require('./package.js');
 
 let chain = [];
 
@@ -303,6 +303,20 @@ const installModule = (key, version) => {
     });
 }
 
+const installPackage = (cwd, key, version) => {
+    return new Promise((resolve, reject) => {
+        installModule(key, version).then(() => {
+            let json = getPackageFile(cwd);
+            json.dependencies[key] = version;
+            setPackageFile(cwd, json);
+            resolve();
+        }).catch(error => {
+            reject(error);
+        });
+    });
+};
+
 module.exports = {
-    startInstall: startInstall
+    startInstall: startInstall,
+    installPackage: installPackage
 };

@@ -19,6 +19,17 @@ const getPackageFile = cwd => {
     return json;
 }
 
+const setPackageFile = (cwd, json) => {
+    const pathToPackage = cwd + "/package.json";
+    if (!fs.existsSync(pathToPackage)) {
+        console.error("No package.json");
+        return;
+    }
+
+    fs.writeFile(pathToPackage, JSON.stringify(json, null, 2), 'utf-8');
+}
+
 module.exports = {
-    getPackageFile: getPackageFile
+    getPackageFile: getPackageFile,
+    setPackageFile: setPackageFile
 }
