@@ -6,6 +6,7 @@ Nip can install javascript packages and caches them in a global cache so you don
 # Commands
 ```
 install - installs all packages from the package.json
+install PACKAGE - installs the given package
 ```
 
 # Why you should use it instead of NPM
