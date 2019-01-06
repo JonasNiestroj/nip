@@ -17,7 +17,7 @@ const handleTarArchiveDownload = (response, key, resolve, reject) => {
         const cacheDir = CACHEDIR + "/" + key;
         fs.ensureDir(cacheDir);
         fs.emptyDir(MAINDIR + "/" + key, () => {
-            const command = `tar -xvzf ${MAINDIR}&${key}.tgz -C ${MAINDIR}/${key}`;
+            const command = `tar -xvzf ${MAINDIR}/${key}.tgz -C ${MAINDIR}/${key}`;
             exec(command, (err, stdout, stderr) => {
                 fs.readdir(`${MAINDIR}/${key}`, (error, files) => {
                     if (error) {
@@ -161,28 +161,33 @@ const install = (cwd, environment) => {
         getPackageFile(cwd).then(package => {
             const name = package.name || cwd;
 
-            const parentDir = path.resolve(`${cwd}/...`);
+            const parentDir = path.resolve(`${cwd}/..`);
             fs.readdir(parentDir, (error, folders) => {
-                let highest = null;
-                for (let i = 0; i < folders.length; i++) {
-                    const folder = folders[i];
-                    if (highest === null) {
-                        highest = folder;
-                        continue;
-                    }
-
-                    const realVersion = getVersionData(folder);
-                    const version2 = realVersion.versionData.useVersion;
-                    const comparitor = compareVersion(highest, version2);
-
-                    if (comparitor === 1) {
-                        highest = version2;
-                    }
+                if (error) {
+                    console.error(error);
                 }
-                fs.remove(`${NODEDIR}/${name}`, () => {
-                    const command = `mklink /d /j \"${NODEDIR}/${name}\" \"${parentDir}/${highest}\"`;
-                    exec(command);
-                });
+                else {
+                    let highest = null;
+                    for (let i = 0; i < folders.length; i++) {
+                        const folder = folders[i];
+                        if (highest === null) {
+                            highest = folder;
+                            continue;
+                        }
+
+                        const realVersion = getVersionData(folder);
+                        const version2 = realVersion.versionData.useVersion;
+                        const comparitor = compareVersion(highest, version2);
+
+                        if (comparitor === 1) {
+                            highest = version2;
+                        }
+                    }
+                    fs.remove(`${NODEDIR}/${name}`, () => {
+                        const command = `mklink /d /j \"${NODEDIR}/${name}\" \"${parentDir}/${highest}\"`;
+                        exec(command);
+                    });
+                }
             })
         }).catch(error => {
             console.error("Error in install2", cwd);
@@ -220,7 +225,7 @@ const getModuleFromNpm = (key, version) => {
                         const archive = versionData.dist.tarball;
                         getTarArchive(archive, key).then(actualVersion => {
                             resolve(actualVersion);
-                        }).catch(reject);
+                        }).catch(error => reject(error));
                     }
                     return;
                 }
@@ -264,7 +269,6 @@ const installModule = (key, version) => {
 
         if (type === 'numeric') {
             let versionCacheDir = `${packageCacheDir}/${versionData.useVersion}`;
-            console.log("DIRECTORY", versionCacheDir);
             fs.exists(versionCacheDir, exists => {
                 if (exists) {
                     handleExistingInstallation(versionCacheDir);
