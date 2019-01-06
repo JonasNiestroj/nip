@@ -10,38 +10,44 @@ const { getPackageFile, setPackageFile } = require('./package.js');
 let chain = [];
 
 const handleTarArchiveDownload = (response, key, resolve, reject) => {
-    const downloadPath = MAINDIR + "/" + key + ".tgz";
+    const downloadPath = `${MAINDIR}/${key}.tgz`;
     const file = fs.createWriteStream(downloadPath);
     response.data.pipe(file);
     file.on('finish', () => {
         const cacheDir = CACHEDIR + "/" + key;
         fs.ensureDir(cacheDir);
         fs.emptyDir(MAINDIR + "/" + key, () => {
-            const command = "tar -xvzf " + MAINDIR + "/" + key + ".tgz -C " + MAINDIR + "/" + key;
+            const command = `tar -xvzf ${MAINDIR}&${key}.tgz -C ${MAINDIR}/${key}`;
             exec(command, (err, stdout, stderr) => {
-                fs.readdir(MAINDIR + "/" + key, (error, files) => {
+                fs.readdir(`${MAINDIR}/${key}`, (error, files) => {
+                    if (error) {
+                        console.log(MAINDIR + "/" + key);
+                        process.exit(1);
+                        console.error(error);
+                        reject();
+                        return;
+                    }
                     const extractedFolder = files[0];
                     if (!extractedFolder) {
                         console.log("Tararchive was empty");
                         reject();
                     }
-                    getPackageFile(MAINDIR + "/" + key + "/" + extractedFolder).then(json => {
+                    getPackageFile(`${MAINDIR}/${key}/${extractedFolder}`).then(json => {
                         if (!json) {
                             console.log("No json in tararchive");
                             process.exit(1);
                         }
-                        fs.remove(MAINDIR + "/" + key + ".tgz");
+                        fs.remove(`${MAINDIR}/${key}.tgz`);
                         const version = json.version;
-                        const versionCacheDir = cacheDir + "/" + version;
-                        fs.mkdir(versionCacheDir, () => {
-                            fs.move(MAINDIR + "/" + key + "/" + extractedFolder, versionCacheDir, () => {
-                                fs.remove(MAINDIR + "/" + key);
-                                install(versionCacheDir).then(() => {
-                                    resolve(version);
-                                });
+                        const versionCacheDir = `${cacheDir}/${version}`;
+                        fs.move(`${MAINDIR}/${key}/${extractedFolder}`, versionCacheDir, (error) => {
+                            fs.remove(`${MAINDIR}/${key}`);
+                            install(versionCacheDir).then(() => {
+                                resolve(version);
                             });
-
                         });
+                    }).catch(error => {
+                        console.error("Error in handleTarArchiveDownload", key);
                     });
 
                 });
@@ -73,7 +79,7 @@ const install = (cwd, environment) => {
             getPackageFile(cwd).then(package => {
                 const name = package.name || cwd;
                 const parentVersion = package.version;
-                const key = name + "@" + parentVersion;
+                const key = `${name}@${parentVersion}`;
                 if (chain.includes(key)) {
                     resolve();
                     return;
@@ -92,7 +98,7 @@ const install = (cwd, environment) => {
                 const top = chain.length <= 2;
 
                 if (top) {
-                    console.log(tab + "Installing package", name, parentVersion);
+                    console.log(`${tab}Installing package`, name, parentVersion);
                 }
 
                 let fullDeps = {
@@ -107,10 +113,10 @@ const install = (cwd, environment) => {
 
                 const dependencyKeys = Object.keys(fullDeps);
                 if (dependencyKeys.length > 0) {
-                    console.log(key + " has " + dependencyKeys.length + " dependencies: " + dependencyKeys);
+                    console.log(`${key} has ${dependencyKeys.length} dependencies: ${dependencyKeys}`);
                     const installDependency = () => {
                         if (top) {
-                            console.log(tab2 + name + " dependencies left: " + dependencyKeys.length);
+                            console.log(`${tab2}${name} dependencies left: ${dependencyKeys.length}`);
                         }
                         let promises = [];
                         for (let i = 0; i < dependencyKeys.length; i++) {
@@ -119,13 +125,13 @@ const install = (cwd, environment) => {
                         }
                         Promise.all(promises).then(response => {
                             if (top) {
-                                console.log(tab + "Installation of package " + name + " completed");
+                                console.log(`${tab}Installation of package ${name} completed`);
                             }
-                            fs.exists(CACHEDIR + "/" + name + "/" + parentVersion, exists => {
+                            fs.exists(`${CACHEDIR}/${name}/${parentVersion}`, exists => {
                                 if (exists) {
-                                    fs.ensureDir(CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules", () => {
+                                    fs.ensureDir(`${CACHEDIR}/${name}/${parentVersion}/node_modules`, () => {
                                         response.forEach(element => {
-                                            const command = "mklink /d /j \"" + CACHEDIR + "/" + name + "/" + parentVersion + "/node_modules/" + element[1] + "\" \"" + element[0] + "\"";
+                                            const command = `mklink /d /j \"${CACHEDIR}/${name}/${parentVersion}/node_modules/${element[1]}\" \"${element[0]}\"`;
                                             exec(command);
                                         });
                                     });
@@ -134,15 +140,17 @@ const install = (cwd, environment) => {
                                 return;
                             });
                         }).catch(err => {
-                            reject('Unable to install package: ' + err.message);
+                            reject(`Unable to install package: ${err.message}`);
                         });
                     }
                     installDependency();
                 }
                 else {
-                    console.log(tab + "Installation of package " + name + " completed");
+                    console.log(`${tab}Installation of package ${name} completed`);
                     resolve();
                 }
+            }).catch(error => {
+                console.error("Error in install", cwd);
             });
 
         });
@@ -153,7 +161,7 @@ const install = (cwd, environment) => {
         getPackageFile(cwd).then(package => {
             const name = package.name || cwd;
 
-            const parentDir = path.resolve(cwd + "/..");
+            const parentDir = path.resolve(`${cwd}/...`);
             fs.readdir(parentDir, (error, folders) => {
                 let highest = null;
                 for (let i = 0; i < folders.length; i++) {
@@ -171,11 +179,13 @@ const install = (cwd, environment) => {
                         highest = version2;
                     }
                 }
-                fs.remove(NODEDIR + "/" + name, () => {
-                    const command = "mklink /d /j \"" + NODEDIR + "/" + name + "\" \"" + parentDir + "/" + highest + "\"";
+                fs.remove(`${NODEDIR}/${name}`, () => {
+                    const command = `mklink /d /j \"${NODEDIR}/${name}\" \"${parentDir}/${highest}\"`;
                     exec(command);
                 });
             })
+        }).catch(error => {
+            console.error("Error in install2", cwd);
         });
 
     }).then(() => {
@@ -185,7 +195,7 @@ const install = (cwd, environment) => {
 
 const startInstall = (cwd, environment) => {
     return new Promise((resolve, reject) => {
-        const nodeDir = cwd + "/node_modules";
+        const nodeDir = `${cwd}/node_modules`;
         fs.emptyDir(nodeDir, () => {
             install(cwd, environment).then(() => resolve());
         });
@@ -205,7 +215,7 @@ const getModuleFromNpm = (key, version) => {
 
                 const usableVersion = findBestVersion(version, Object.keys(response.versions));
                 if (usableVersion) {
-                    const versionData = response.versions[usableVersion];
+                    const versionData = response.versions[usableVersion.version ? usableVersion.version : usableVersion];
                     if (versionData.dist) {
                         const archive = versionData.dist.tarball;
                         getTarArchive(archive, key).then(actualVersion => {
@@ -240,11 +250,11 @@ const installModule = (key, version) => {
             versionData = result.versionData;
         }
         catch (err) {
-            console.log(key + " Unable to install package:", err);
+            console.log(`${key} Unable to install package:`, err);
             reject(err);
             throw err;
         }
-        const packageCacheDir = CACHEDIR + "/" + key;
+        const packageCacheDir = `${CACHEDIR}/${key}`;
 
         const handleExistingInstallation = cwd => {
             install(cwd).then(() => {
@@ -253,15 +263,16 @@ const installModule = (key, version) => {
         };
 
         if (type === 'numeric') {
-            let versionCacheDir = packageCacheDir + "/" + versionData.useVersion;
+            let versionCacheDir = `${packageCacheDir}/${versionData.useVersion}`;
+            console.log("DIRECTORY", versionCacheDir);
             fs.exists(versionCacheDir, exists => {
                 if (exists) {
                     handleExistingInstallation(versionCacheDir);
                 }
                 else {
                     getModuleFromNpm(key, version).then(actualVersion => {
-                        versionCacheDir = packageCacheDir + "/" + actualVersion;
-                        resolve([versionCacheDir, key]);
+                        versionCacheDir = `${packageCacheDir}/${actualVersion}`;
+                        resolve([versionCacheDir, key, actualVersion]);
                     }).catch(e => {
                         console.log(key + " Unable to install package:", e);
                         throw e;
@@ -277,7 +288,7 @@ const installModule = (key, version) => {
             if (ending === "tgz") {
                 getTarArchive(version, key).then(version => {
                     const versionCacheDir = packageCacheDir + "/" + version;
-                    resolve([versionCacheDir, key]);
+                    resolve([versionCacheDir, key, version]);
                 });
             }
         }
@@ -323,11 +334,13 @@ const installModule = (key, version) => {
 
 const installPackage = (cwd, key, version) => {
     return new Promise((resolve, reject) => {
-        installModule(key, version).then(() => {
+        installModule(key, version).then(response => {
             getPackageFile(cwd).then(json => {
-                json.dependencies[key] = version;
+                json.dependencies[key] = response[2];
                 setPackageFile(cwd, json);
                 resolve();
+            }).catch(error => {
+                console.log("Error in installPackage", cwd, key, version);
             });
         }).catch(error => {
             reject(error);

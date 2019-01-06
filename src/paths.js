@@ -2,7 +2,7 @@ const os = require('os');
 const fs = require('fs-extra');
 
 const homeDir = os.homedir();
-const nipDir = homeDir + "/.nip";
+const nipDir = `${homeDir}/.nip`;
 
 if (!fs.existsSync(nipDir)) {
     fs.mkdirSync(nipDir);
@@ -10,14 +10,14 @@ if (!fs.existsSync(nipDir)) {
 
 const MAINDIR = nipDir;
 
-const nipCacheDir = nipDir + "/cache";
+const nipCacheDir = `${nipDir}/cache`;
 if (!fs.existsSync(nipCacheDir)) {
     fs.mkdirSync(nipCacheDir);
 }
 
 const CACHEDIR = nipCacheDir;
 
-const nipNodeDir = process.cwd() + "/node_modules";
+const nipNodeDir = `${process.cwd()}/node_modules`;
 
 const NODEDIR = nipNodeDir;
 

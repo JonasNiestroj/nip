@@ -29,7 +29,7 @@ const getVersionData = version => {
     else {
         type = 'numeric';
         versionData = {
-            exactVersion: semver.coerce(version).version
+            exactVersion: version === "*" ? version : semver.coerce(version).version
         }
     }
     if (versionData.exactVersion) {
